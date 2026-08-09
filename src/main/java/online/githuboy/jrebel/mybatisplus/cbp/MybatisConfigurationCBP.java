@@ -15,6 +15,7 @@ public class MybatisConfigurationCBP extends JavassistClassBytecodeProcessor {
 
     @Override
     public void process(ClassPool cp, ClassLoader cl, CtClass ctClass) throws Exception {
+      try {
         cp.importPackage("java.util.Map");
         cp.importPackage("java.util.ArrayList");
         cp.importPackage("java.util.HashMap");
@@ -34,11 +35,19 @@ public class MybatisConfigurationCBP extends JavassistClassBytecodeProcessor {
             }
         }
         //rewrite addMappedStatement
-        String bodyStatement = "";
-        if (null != cp.getOrNull(Constants.MybatisConfiguration$StrictMapClass)) {
-            bodyStatement = "mappedStatements.put($1.getId(), $1);";
-        }
-        ctClass.getDeclaredMethod("addMappedStatement").setBody("{super.addMappedStatement($1);" + bodyStatement + "}");
+        // MybatisConfiguration.addMappedStatement checks containsKey and returns early
+        // ("is ignored, because it exists") which blocks reload. During reload we bypass
+        // the check and let StrictMapCBP handle the put (fakes containsKey=false inside put).
+        // We do NOT call super.addMappedStatement: in 3.5.7+ the parent Configuration's
+        // StrictMap is a different class (not hooked) and would throw on duplicate keys.
+        ctClass.getDeclaredMethod("addMappedStatement").setBody(
+            "{  if (mappedStatements.containsKey($1.getId())" +
+            "      && !" + Constants.SqlMapReloaderClass + ".isReloading()) {" +
+            "    return;" +
+            "  }" +
+            "  mappedStatements.put($1.getId(), $1);" +
+            "}"
+        );
         ctClass.getDeclaredMethod("addInterceptor").insertBefore("if (!reloader.isInsideConf() && !reloader.isReloading()) {  " + LOGGER + ".info(\"Memorizing non-xml interceptor: {}\", $1);  __nonXmlInterceptors.add($1);}");
         ctClass.addMethod(CtNewMethod.make("public " + Constants.SqlMapReloaderClass + " getReloader() {  return reloader;}", ctClass));
         ctClass.addMethod(CtNewMethod.make("public void reinit() {  loadedResources.clear();  ((" + Constants.JrInterceptorChain + ")  interceptorChain).jrClear();}", ctClass));
@@ -48,6 +57,12 @@ public class MybatisConfigurationCBP extends JavassistClassBytecodeProcessor {
         if (!JavassistUtil.hasDeclaredMethod(ctClass, "getSqlFragments")) {
             ctClass.addMethod(CtNewMethod.make("public Map getSqlFragments() {  return super.getSqlFragments();}", ctClass));
         }
+      } catch (Exception e) {
+          LoggerFactory.getLogger("MyBatisPlus").warn(
+              "[JRebel MyBatisPlus] Failed to enhance MybatisConfiguration. " +
+              "Mapper XML reload may not work correctly. Reason: " + e.getMessage());
+          throw e;
+      }
     }
 
     /**

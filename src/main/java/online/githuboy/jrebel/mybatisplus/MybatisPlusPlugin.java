@@ -26,17 +26,49 @@ public class MybatisPlusPlugin implements Plugin {
         } catch (IOException e) {
             log.error("Can not read jr-mybatisplus/pom.properties:", e.getMessage());
         }
-        log.infoEcho("Ready config JRebel MybatisPlus plugin(" + version + ")...");
+        log.infoEcho("[JRebel MyBatisPlus] Plugin initialized (version=" + version + ")");
         ClassLoader classLoader = MybatisPlusPlugin.class.getClassLoader();
         Integration integration = IntegrationFactory.getInstance();
+
+        // Detect MyBatis-Plus / MyBatis versions from manifest or package
+        logVersionInfo(classLoader);
+
         //register class processor
         configMybatisPlusProcessor(integration, classLoader);
         configMybatisProcessor(integration, classLoader);
     }
 
+    private void logVersionInfo(ClassLoader classLoader) {
+        try {
+            String mpVersion = detectPackageVersion(classLoader,
+                    "com.baomidou.mybatisplus.core.MybatisConfiguration");
+            log.infoEcho("[JRebel MyBatisPlus] MyBatis-Plus detected: " + mpVersion);
+        } catch (Throwable t) {
+            log.infoEcho("[JRebel MyBatisPlus] MyBatis-Plus version not resolvable");
+        }
+        try {
+            String mybatisVersion = detectPackageVersion(classLoader,
+                    "org.apache.ibatis.session.Configuration");
+            log.infoEcho("[JRebel MyBatisPlus] MyBatis detected: " + mybatisVersion);
+        } catch (Throwable t) {
+            log.infoEcho("[JRebel MyBatisPlus] MyBatis version not resolvable");
+        }
+    }
+
+    private String detectPackageVersion(ClassLoader cl, String className) {
+        try {
+            Class<?> clazz = Class.forName(className, false, cl);
+            Package pkg = clazz.getPackage();
+            if (pkg != null && pkg.getImplementationVersion() != null) {
+                return pkg.getImplementationVersion();
+            }
+        } catch (Throwable ignored) {
+        }
+        return "unknown";
+    }
+
     private void configMybatisPlusProcessor(Integration integration, ClassLoader classLoader) {
-        //if there has MybatisPlus ClassResource
-        log.infoEcho("Add CBP for mybatis-plus core classes...");
+        log.infoEcho("[JRebel MyBatisPlus] Add CBP for mybatis-plus core classes...");
         integration.addIntegrationProcessor(classLoader, "com.baomidou.mybatisplus.core.MybatisConfiguration", new MybatisConfigurationCBP());
         integration.addIntegrationProcessor(classLoader, "com.baomidou.mybatisplus.core.MybatisMapperAnnotationBuilder", new MybatisMapperAnnotationBuilderCBP());
         integration.addIntegrationProcessor(classLoader, "com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean", new MybatisSqlSessionFactoryBeanCBP());

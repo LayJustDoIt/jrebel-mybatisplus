@@ -5,6 +5,7 @@ import org.zeroturnaround.bundled.javassist.expr.ExprEditor;
 import org.zeroturnaround.bundled.javassist.expr.MethodCall;
 import org.zeroturnaround.bundled.javassist.expr.NewExpr;
 import org.zeroturnaround.javarebel.ClassEventListener;
+import org.zeroturnaround.javarebel.LoggerFactory;
 import org.zeroturnaround.javarebel.integration.support.JavassistClassBytecodeProcessor;
 
 /**
@@ -45,12 +46,19 @@ public class MybatisMapperAnnotationBuilderCBP extends JavassistClassBytecodePro
     }
 
     public void process(ClassPool cp, ClassLoader cl, CtClass ctClass) throws Exception {
+      try {
         cp.importPackage("org.apache.ibatis.io");
         cp.importPackage("org.apache.ibatis.executor");
         cp.importPackage("org.apache.ibatis.builder.xml");
         cp.importPackage("org.zeroturnaround.jrebel.mybatis");
         ctClass.getDeclaredMethod("loadXmlResource").instrument(new LoadXmlResourceHook());
         processAnnotationReloading(cp, ctClass);
+      } catch (Exception e) {
+          LoggerFactory.getLogger("MyBatisPlus").warn(
+              "[JRebel MyBatisPlus] Failed to enhance MybatisMapperAnnotationBuilder. " +
+              "Reason: " + e.getMessage());
+          throw e;
+      }
     }
 
     private void processAnnotationReloading(ClassPool cp, CtClass ctClass) throws NotFoundException, CannotCompileException {

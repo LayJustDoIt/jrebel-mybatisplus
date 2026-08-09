@@ -25,6 +25,7 @@ public class MybatisSqlSessionFactoryBeanCBP extends JavassistClassBytecodeProce
     }
 
     public void process(ClassPool cp, ClassLoader cl, CtClass ctClass) throws Exception {
+      try {
         if (!ConfigurationFactory.getInstance().isPluginEnabled("spring_plugin")) {
             LoggerFactory.getLogger("MyBatisPlus").warn("MyBatisPlus Spring integration requires Spring plugin, which is currently disabled");
         } else {
@@ -74,6 +75,12 @@ public class MybatisSqlSessionFactoryBeanCBP extends JavassistClassBytecodeProce
                 }
             });
         }
+      } catch (Exception e) {
+          LoggerFactory.getLogger("MyBatisPlus").warn(
+              "[JRebel MyBatisPlus] Failed to enhance MybatisSqlSessionFactoryBean. " +
+              "Reason: " + e.getMessage());
+          throw e;
+      }
     }
 
     private void createRegisterMapperLocationMethod(ClassPool cp, CtClass ctClass) throws CannotCompileException {

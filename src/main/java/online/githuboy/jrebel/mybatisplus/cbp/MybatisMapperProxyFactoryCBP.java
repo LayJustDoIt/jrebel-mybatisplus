@@ -5,6 +5,8 @@ import org.zeroturnaround.bundled.javassist.ClassPool;
 import org.zeroturnaround.bundled.javassist.CtClass;
 import org.zeroturnaround.bundled.javassist.CtField;
 import org.zeroturnaround.bundled.javassist.CtMethod;
+import org.zeroturnaround.bundled.javassist.NotFoundException;
+import org.zeroturnaround.javarebel.LoggerFactory;
 import org.zeroturnaround.javarebel.integration.support.JavassistClassBytecodeProcessor;
 
 /**
@@ -26,6 +28,7 @@ import org.zeroturnaround.javarebel.integration.support.JavassistClassBytecodePr
 public class MybatisMapperProxyFactoryCBP extends JavassistClassBytecodeProcessor {
     @Override
     public void process(ClassPool classPool, ClassLoader classLoader, CtClass ctClass) throws Exception {
+      try {
         ctClass.addField(CtField.make("private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(com.baomidou.mybatisplus.core.override.MybatisMapperProxyFactory.class);", ctClass));
         CtMethod newInstanceMethod = ctClass.getDeclaredMethod("newInstance", new CtClass[]{classPool.get("org.apache.ibatis.session.SqlSession")});
         newInstanceMethod.insertBefore(" { " +
@@ -42,6 +45,16 @@ public class MybatisMapperProxyFactoryCBP extends JavassistClassBytecodeProcesso
                 "        }\n" +
                 "}\n" +
                 "}\n");
+      } catch (NotFoundException e) {
+          LoggerFactory.getLogger("MyBatisPlus").warn(
+              "[JRebel MyBatisPlus] MybatisMapperProxyFactory method not found. " +
+              "Skipping method cache cleanup enhancement. Reason: " + e.getMessage());
+      } catch (Exception e) {
+          LoggerFactory.getLogger("MyBatisPlus").warn(
+              "[JRebel MyBatisPlus] Failed to enhance MybatisMapperProxyFactory. " +
+              "Reason: " + e.getMessage());
+          throw e;
+      }
     }
 
 }
