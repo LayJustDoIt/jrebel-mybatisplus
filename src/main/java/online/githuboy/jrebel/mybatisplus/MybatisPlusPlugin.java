@@ -1,6 +1,7 @@
 package online.githuboy.jrebel.mybatisplus;
 
 import online.githuboy.jrebel.mybatisplus.cbp.*;
+import online.githuboy.jrebel.mybatisplus.compatibility.ResourceVersionDetector;
 import org.zeroturnaround.javarebel.*;
 
 import java.io.IOException;
@@ -16,6 +17,20 @@ import java.util.Properties;
 public class MybatisPlusPlugin implements Plugin {
     private static final Logger log = LoggerFactory.getLogger("MyBatisPlus");
 
+    /**
+     * MyBatis-Plus artifact coordinates used for pure-resource version detection.
+     * Never call {@code Class.forName} on these classes here: that would load
+     * the class before the CBP is registered and silently disable enhancement.
+     */
+    private static final String MP_CLASS_RESOURCE =
+            "com/baomidou/mybatisplus/core/MybatisConfiguration.class";
+    private static final String MP_POM_PROPERTIES =
+            "META-INF/maven/com.baomidou/mybatis-plus-core/pom.properties";
+    private static final String MYBATIS_CLASS_RESOURCE =
+            "org/apache/ibatis/session/Configuration.class";
+    private static final String MYBATIS_POM_PROPERTIES =
+            "META-INF/maven/org.mybatis/mybatis/pom.properties";
+
     @Override
     public void preinit() {
         Properties p = new Properties();
@@ -30,41 +45,34 @@ public class MybatisPlusPlugin implements Plugin {
         ClassLoader classLoader = MybatisPlusPlugin.class.getClassLoader();
         Integration integration = IntegrationFactory.getInstance();
 
-        // Detect MyBatis-Plus / MyBatis versions from manifest or package
-        logVersionInfo(classLoader);
-
-        //register class processor
+        // 1. Register all ClassBytecodeProcessors FIRST.
+        //    This must happen before any code path that may load the target
+        //    classes (e.g. version detection). Once a class is loaded by the
+        //    JVM, JRebel can no longer instrument its bytecode.
         configMybatisPlusProcessor(integration, classLoader);
         configMybatisProcessor(integration, classLoader);
+
+        // 2. After CBP registration, it is safe to detect versions.
+        //    ResourceVersionDetector uses ClassLoader.getResource only and
+        //    never triggers class loading.
+        logVersionInfo(classLoader);
     }
 
     private void logVersionInfo(ClassLoader classLoader) {
         try {
-            String mpVersion = detectPackageVersion(classLoader,
-                    "com.baomidou.mybatisplus.core.MybatisConfiguration");
+            String mpVersion = ResourceVersionDetector.detectVersion(
+                    classLoader, MP_CLASS_RESOURCE, MP_POM_PROPERTIES);
             log.infoEcho("[JRebel MyBatisPlus] MyBatis-Plus detected: " + mpVersion);
         } catch (Throwable t) {
             log.infoEcho("[JRebel MyBatisPlus] MyBatis-Plus version not resolvable");
         }
         try {
-            String mybatisVersion = detectPackageVersion(classLoader,
-                    "org.apache.ibatis.session.Configuration");
+            String mybatisVersion = ResourceVersionDetector.detectVersion(
+                    classLoader, MYBATIS_CLASS_RESOURCE, MYBATIS_POM_PROPERTIES);
             log.infoEcho("[JRebel MyBatisPlus] MyBatis detected: " + mybatisVersion);
         } catch (Throwable t) {
             log.infoEcho("[JRebel MyBatisPlus] MyBatis version not resolvable");
         }
-    }
-
-    private String detectPackageVersion(ClassLoader cl, String className) {
-        try {
-            Class<?> clazz = Class.forName(className, false, cl);
-            Package pkg = clazz.getPackage();
-            if (pkg != null && pkg.getImplementationVersion() != null) {
-                return pkg.getImplementationVersion();
-            }
-        } catch (Throwable ignored) {
-        }
-        return "unknown";
     }
 
     private void configMybatisPlusProcessor(Integration integration, ClassLoader classLoader) {

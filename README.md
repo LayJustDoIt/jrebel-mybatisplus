@@ -21,6 +21,71 @@ Jrebel mybatisplus热加载插件，支持重新加载修改后的SQL映射
 
 # 版本说明
 
+## v1.0.8
+
+主要修复：
+
+### 问题 1：插件初始化阶段 ClassCastException
+
+旧版本初始化时为了输出版本信息，通过 `Class.forName` 提前加载 `MybatisConfiguration`：
+
+```java
+Class.forName(
+    "com.baomidou.mybatisplus.core.MybatisConfiguration",
+    false,
+    classLoader
+)
+```
+
+这会导致 `MybatisConfigurationCBP` 注册时已经错过类加载阶段，
+`MybatisConfiguration` 没有被增强为 `JrConfiguration`，
+最终在 JRebel 运行时抛出：
+
+```
+MybatisConfiguration cannot be cast to JrConfiguration
+```
+
+v1.0.8 修复：
+
+- 新增 `ResourceVersionDetector`，通过 `pom.properties` + `Manifest`
+  纯资源方式获取 MyBatis-Plus 版本，不再通过 `Class.forName` 加载框架类
+- 调整 JRebel processor 注册顺序：processor first，version detection later
+
+### 问题 2：XML reload 误删 MyBatis-Plus 自动注入 MappedStatement
+
+旧版本 Mapper XML reload 时按 namespace 前缀全量清理 Configuration 内容：
+
+```
+namespace + ".*"
+→ mappedStatements
+→ resultMaps
+→ parameterMaps
+→ keyGenerators
+→ sqlFragments
+```
+
+这会导致 MyBatis-Plus `SqlInjector` 自动注入的
+`selectPage` / `selectById` / `selectList` 等被一起删除。
+`XMLMapperBuilder` 重新解析 XML 时又不会重新执行 `SqlInjector`，
+最终在调用时抛出：
+
+```
+Mapped Statements collection does not contain value for xxx.selectPage
+```
+
+v1.0.8 修复：
+
+- Mapper XML reload 改为 **XML-owned exact cleanup**
+- 只删除当前 XML 自己声明的资源：
+  - `select` / `insert` / `update` / `delete` → mappedStatements
+  - `resultMap` → resultMaps
+  - `parameterMap` → parameterMaps
+  - `sql` → sqlFragments
+  - `selectKey` → 对应的 MappedStatement + KeyGenerator
+  - 当前 resource → loadedResources（精确移除，非 clear）
+- `knownMappers` 完全不修改
+- 不使用 `Class.forName`，不加载 Mapper 接口
+
 ## v1.0.7
 
 主要修复：
@@ -43,10 +108,13 @@ Jrebel mybatisplus热加载插件，支持重新加载修改后的SQL映射
 
 | MyBatis-Plus 版本 | 状态 | 说明 |
 | --- | --- | --- |
-| 3.5.7 | 已验证 | 已通过 integration-demo 验证 Mapper XML 热加载 |
-| 3.1.1 ~ 3.5.6 | 历史支持范围，本次未逐版本回归验证 | 项目历史上支持该范围，但 v1.0.7 本次没有逐版本重新执行集成验证 |
+| 3.5.2 | 已验证 | integration-demo + 真实业务项目验证 Mapper XML 热加载 |
+| 3.5.7 | 已验证 | integration-demo 验证 Mapper XML 热加载 |
+| 3.1.1 ~ 3.5.1、3.5.3 ~ 3.5.6 | 历史支持范围，本次未逐版本重新验证 | 不做本次兼容承诺 |
 
-> 仅 3.5.7 经过 integration-demo 真实运行验证，其他版本不做本次兼容承诺。
+> 已验证多次 Mapper XML reload 后，MyBatis-Plus 自动注入的
+> `selectPage` / `selectById` / `selectList` 持续可用。
+> Mapper XML 热加载已在 MyBatis-Plus 3.5.2、3.5.7 验证。
 
 
 # 如何使用
@@ -87,7 +155,7 @@ mvn clean package
 启动时需要加载本插件 jar，VM 参数示例：
 
 ```
--Drebel.plugins=/path/to/jr-mybatisplus-1.0.7.jar
+-Drebel.plugins=/path/to/jr-mybatisplus-1.0.8.jar
 ```
 
 启动后访问 `GET /user/{id}`，修改 `mapper/UserMapper.xml` 中的 SQL，重新编译资源（不重启 JVM），再次请求接口即可看到结果变化。

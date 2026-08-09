@@ -71,4 +71,22 @@
         </plugins>
     </build>
 
+    <profiles>
+        <profile>
+            <id>mp-3.5.2</id>
+            <properties>
+                <mybatis-plus.version>3.5.2</mybatis-plus.version>
+            </properties>
+        </profile>
+        <profile>
+            <id>mp-3.5.7</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <mybatis-plus.version>3.5.7</mybatis-plus.version>
+            </properties>
+        </profile>
+    </profiles>
+
 </project>
