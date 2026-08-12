@@ -1,7 +1,7 @@
 
 # jrebel-mybatisplus
 
-Jrebel mybatisplus热加载插件，支持重新加载修改后的SQL映射
+JRebel MyBatis-Plus runtime plugin — supports hot-reloading modified MyBatis-Plus Mapper XML SQL maps without losing MyBatis-Plus injected statements (e.g. `selectPage`).
 
 (中文|[English](README-en.md))
 
@@ -16,8 +16,6 @@ Jrebel mybatisplus热加载插件，支持重新加载修改后的SQL映射
    > On 'Update' actions: Update classes and resources
 
    > On frame deactivation:  Update classes and resources
-
-
 
 # 版本说明
 
@@ -116,28 +114,27 @@ v1.0.8 修复：
 > `selectPage` / `selectById` / `selectList` 持续可用。
 > Mapper XML 热加载已在 MyBatis-Plus 3.5.2、3.5.7 验证。
 
-
 # 如何使用
 
-已开发IDEA的插件 [jrebel-mybatisplus-idea-plugin](https://github.com/SweetInk/jrebel-mybatisplus-idea-plugin). 安装插件后即可使用，不需要再配置了。
+推荐安装 IDEA 插件 [MyBatis-Plus Reload](https://github.com/LayJustDoIt/jrebel-mybatisplus-idea-plugin)，安装后通过 JRebel Run / Debug 启动即可自动加载本 runtime，无需手工配置 `-Drebel.plugins`。
 
 ## 构建插件
 
- ``` shell
-git clone git@github.com:SweetInk/jrebel-mybatisplus.git
+```shell
+git clone https://github.com/LayJustDoIt/jrebel-mybatisplus.git
 cd jrebel-mybatisplus
-mvn -f jr-mybatisplus/pom.xml clean package
+mvn clean package
 ```
 
-将构建好的插件`jrebel-mybatisplus\target\jr-mybatisplus.jar`拷贝至任意目录, 比如: `d:\jrebel\plugin\jr-mybatisplus.jar`
+将构建好的插件 `target/jr-mybatisplus-1.0.8.jar` 拷贝至任意目录，比如: `/path/to/jr-mybatisplus-1.0.8.jar`
 
-## 使用
+## 手工使用（不安装 IDEA 插件）
 
-打开你的IDE(Intellij IDEA or Eclipse),修改运行配置，增加VM参数:`-Drebel.plugins=d:\jrebel\plugin\jr-mybatisplus.jar`，然后以JRebel方式启动
+打开你的 IDE (IntelliJ IDEA or Eclipse)，修改运行配置，增加 VM 参数：`-Drebel.plugins=/path/to/jr-mybatisplus-1.0.8.jar`，然后以 JRebel 方式启动。
 
-检查插件是否生效:
+检查插件是否生效：
 
-修改你项目中的mapper xml 文件后，重新编译，如果重新请求接口，你应该会看到控制台输出 “Reloading SQL maps”
+修改你项目中的 mapper xml 文件后，重新编译，如果重新请求接口，你应该会看到控制台输出 "Reloading SQL maps"。
 
 ## integration-demo
 
@@ -147,7 +144,7 @@ mvn -f jr-mybatisplus/pom.xml clean package
 
 使用方式：
 
-``` shell
+```shell
 cd integration-demo
 mvn clean package
 ```
@@ -168,16 +165,21 @@ mvn clean package
 public class YourClassCBP extends JavassistClassBytecodeProcessor {
    public void process(ClassPool cp, ClassLoader cl, CtClass ctClass) throws Exception {
       //TODO class modify
-      String output = "X:\\workspace\\dump";
+      String output = "/tmp/workspace/dump";
       ctClass.writeFile(output);
       if (ctClass.isFrozen()) {
          ctClass.defrost();
       }
    }
 }
-
 ```
 
+# Credits
+
+This project is based on the original jrebel-mybatisplus project created by **suchu / SweetInk**.
+
+- Original project: https://github.com/SweetInk/jrebel-mybatisplus
+- Current maintenance: https://github.com/LayJustDoIt/jrebel-mybatisplus
 
 # 参考
 
